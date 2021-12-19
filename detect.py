@@ -15,7 +15,7 @@ def load_model():
     print('Detection model loaded successfully.')
 
 
-def predict(img):
+def detect(img):
     tr_img = img.transpose((-1, 0, 1))
     inputs = ({"image": torch.tensor(tr_img)},)
     global model
@@ -30,15 +30,15 @@ def predict(img):
     result_img = result_img.numpy().transpose((1, 2, 0))
     # cv2.imwrite('result.png', )
     io.imsave('result.png', result_img)
-    res_obj = {'bboxes': inference[0]['pred_boxes'].numpy(), 'image': result_img}
+    res_obj = {'bboxes': inference[0]['pred_boxes'].numpy().tolist()}
     return res_obj
 
 
 load_model()
 if __name__ == "__main__":
-    img1 = io.imread('assets/examples/0.jpg')
-    img2 = io.imread('assets/examples/51.jpg')
-    img3 = io.imread('assets/examples/148.jpg')
-    img4 = io.imread('assets/examples/199.jpg')
-    res = predict(img1)
+    img1 = io.imread('results/preprocess0.jpg')
+    res = detect(img1)
     print(res['bboxes'])
+    # input = open("input.txt", "w")
+    # for bbox in res['bboxes']:
+    #     input.write(sentence + "\n")

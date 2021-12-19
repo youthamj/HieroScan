@@ -7,16 +7,19 @@ import pandas as pd
 import cv2
 import numpy as np
 from skimage import io, transform, color
+from visualize import visualize
 
 from skimage.feature import canny
 from skimage.transform import hough_line, hough_line_peaks
 
 import tensorflow as tf
 from tensorflow import keras
+from keras import backend as K
 
 import pickle
 from sklearn.utils import shuffle
 from collections import Counter, defaultdict
+import matplotlib.pyplot as plt
 
 
 def crop_vertical(image):
@@ -52,17 +55,20 @@ def move_coord(coordinates, dist):
     for coor in new_coordinates:
         new_coordinates_df = pd.DataFrame(coor, columns=['X', 'Y', 'L', 'W'])
         new_coordinates_df = new_coordinates_df.sort_values(by=['Y', 'X'])
+        # print(new_coordinates_df.shape[0])
         new_coordinates_df['order'] = np.arange(new_coordinates_df.shape[0], dtype=int)
+        # print(new_coordinates_df.head(1))
         #         print(f"min: {minl} , max: {minl+new_coordinates_df.shape[0]}")
-        minl = minl + new_coordinates_df.shape[0]
+        # minl=minl+new_coordinates_df.shape[0]
         ordered_coordinates = new_coordinates_df.to_numpy()
         ordered_coor.append(ordered_coordinates)
     ordered_full_coordinates = []
     for i in range(len(ordered_coor)):
         ordered_full_coordinate = []
-        for cor in ordered_coor[i]:
-            cor[0] = cor[0] + dist[i]
-            ordered_full_coordinate.append(cor)
+        for j in range(len(ordered_coor[i])):
+            temp = ordered_coor[i][j].copy()
+            temp[0] = temp[0] + dist[i]
+            ordered_full_coordinate.append(temp)
         ordered_full_coordinates.append(ordered_full_coordinate)
     return ordered_coor, ordered_full_coordinates
     # -----------------------------------------
@@ -72,6 +78,8 @@ def get_glyphs(gray_image, coordinates):
     glyphs = []
     for coordinate in coordinates:
         cor = np.asarray(coordinate).astype(int)
+        cor[2] = cor[2] - cor[0]
+        cor[3] = cor[3] - cor[1]
         glyph_img = gray_image[cor[1]:cor[1] + cor[3], cor[0]:cor[0] + cor[2]]
         glyphs.append(glyph_img)
     return glyphs
@@ -242,11 +250,12 @@ def image_to_gardiner(img, coordinates, multi_anchor_img, multi_anchor_label, mo
 
 
 # read all files needed
-with open("assets/classify_assets/fine_tuned_model_final.pickle", "rb") as f:
-    (model) = pickle.load(f)
+# with open("assets/classify_assets/fine_tuned_model(1)_new.pickle", "rb") as f:
+#     (model) = pickle.load(f)
 
+# print(model.summary())
 # with tf.device('/cpu:0'):
-#     model = keras.models.load_model('final_model.h5')
+model = keras.models.load_model('assets/classify_assets/final_model.h5')
 
 with open("assets/classify_assets/multi_anchor.pickle", "rb") as f:
     (multi_anchor_img, multi_anchor_label) = pickle.load(f)
@@ -257,10 +266,21 @@ with open("assets/classify_assets/language_model_sent.pkl", "rb") as f:
     language_model = pickle.load(f)
 
 # ----------main ------------
-test_img = io.imread('assets/examples/0.jpg')
-detected = pd.read_json('assets/classify_assets/image_0_predictions.txt')
-coordinates = detected['bbox']
+from detect import detect
 
-final_pred, final_coor = image_to_gardiner(test_img, coordinates, multi_anchor_img, multi_anchor_label, model,
-                                           language_model)
-print(final_pred)
+test_img = io.imread('results/preprocess73.jpg')
+detections = detect(test_img)
+# detected = pd.read_json('assets/classify_assets/image_0_predictions.txt')
+detected_df = pd.DataFrame(detections, columns=['bboxes'])
+coordinates = detected_df['bboxes']
+
+final_preds, final_coor = image_to_gardiner(test_img, coordinates, multi_anchor_img, multi_anchor_label, model,
+                                            language_model)
+
+print(final_preds)
+image = visualize(test_img, final_coor)
+plt.figure(figsize=(12, 12))
+plt.axis('off')
+plt.imshow(image)
+plt.show()
+io.imsave('classification0.png', image)
