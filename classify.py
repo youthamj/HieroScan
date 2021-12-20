@@ -1,8 +1,4 @@
 import os
-
-os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
-os.environ["CUDA_VISIBLE_DEVICES"] = ""
-
 import pandas as pd
 import cv2
 import numpy as np
@@ -21,7 +17,13 @@ from sklearn.utils import shuffle
 from collections import Counter, defaultdict
 import matplotlib.pyplot as plt
 
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
 
+classification_model = None
+multi_anchor_img = None
+multi_anchor_label = None
+language_model = None
 def crop_vertical(image):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     edges = canny(gray, sigma=3, low_threshold=10, high_threshold=50)
@@ -51,15 +53,10 @@ def move_coord(coordinates, dist):
                 new_cor[0] = new_cor[0] - dist[i]
                 new_coordinates[i].append(new_cor)
     ordered_coor = []
-    minl = 0
     for coor in new_coordinates:
         new_coordinates_df = pd.DataFrame(coor, columns=['X', 'Y', 'L', 'W'])
         new_coordinates_df = new_coordinates_df.sort_values(by=['Y', 'X'])
-        # print(new_coordinates_df.shape[0])
         new_coordinates_df['order'] = np.arange(new_coordinates_df.shape[0], dtype=int)
-        # print(new_coordinates_df.head(1))
-        #         print(f"min: {minl} , max: {minl+new_coordinates_df.shape[0]}")
-        # minl=minl+new_coordinates_df.shape[0]
         ordered_coordinates = new_coordinates_df.to_numpy()
         ordered_coor.append(ordered_coordinates)
     ordered_full_coordinates = []
@@ -86,7 +83,6 @@ def get_glyphs(gray_image, coordinates):
 
 
 def add_padding(img, new_shape=(75, 50)):
-    #     img=np.asarray(img)
     h, w = img.shape
     exp_h, exp_w = new_shape
     addedh = 0
@@ -107,10 +103,9 @@ def add_padding(img, new_shape=(75, 50)):
     addedw = int(addedw / 2)
 
     bordered = cv2.copyMakeBorder(img, addedh, addedh, addedw, addedw, cv2.BORDER_REPLICATE)
-    #     bordered=cv2.copyMakeBorder(img,addedh,addedh,addedw,addedw,cv2.BORDER_CONSTANT, None, value = 255)
+
     bordered = cv2.GaussianBlur(bordered, (15, 15), 0)
     bordered[addedh:addedh + h, addedw:addedw + w] = img
-    #     bordered =cv2.GaussianBlur(bordered,(3,3),0)
     resized = cv2.resize(bordered, (exp_w, exp_h))
     return resized
 
@@ -133,12 +128,11 @@ def lm_next(model, prev):
 
 def whichGlyph_pair(image, anchor_img, anchor_label):
     N, w, h, _ = anchor_img.shape
-    #     pairs=[np.zeros((N, w, h,1)) for i in range(2)]
-    #     image=np.asarray(image)
+
     test_image = np.asarray([image] * N).reshape(N, w, h, 1)
 
     anchor_label, test_image, anchor_img = shuffle(anchor_label, test_image, anchor_img)
-    #     pairs = [test_image,anchor_img]
+
 
     return test_image, anchor_img, anchor_label
 
@@ -186,7 +180,7 @@ def predict_lm(Xtest, multi_anchor_img, multi_anchor_label, model, language_mode
             predicted, targets = predict_multi_anchor(new, multi_anchor_img, multi_anchor_label, model)
             sort_index = np.argsort(np.asarray(predicted).reshape(len(predicted), ))
             targ = targets[sort_index[-1]]
-            #             print(targ)
+
             if targ == 'UNKNOWN':
                 targ = targets[sort_index[-2]]
             preds.append(targ)
@@ -198,10 +192,6 @@ def predict_lm(Xtest, multi_anchor_img, multi_anchor_label, model, language_mode
     return preds
 
 
-# ----------------------------------------------------
-# -------------------------function changed---------------
-# -------------------------------------------------------
-
 def predict_all(glyphs, model, multi_anchor_img, multi_anchor_label, language_model, coordinates):
     predictions = []
     pred_arr = []
@@ -210,22 +200,14 @@ def predict_all(glyphs, model, multi_anchor_img, multi_anchor_label, language_mo
         sentence_padded = pad_images(glyph_list)
         preds = predict_lm(sentence_padded, multi_anchor_img, multi_anchor_label, model, language_model)
         pred_sub = "".join(preds)
-        #         for glyph in glyph_list:
-        #             padded= add_padding(glyph,(75,50))
-        #             predicted,anchor_imgs,targets=whichGlyph(model,padded,anchor_img,anchor_label)
-        #             maxp = np.argmax(predicted)
-        #             pred_sub+=targets[maxp]
         predictions.append(pred_sub)
         pred_arr.append(preds)
     return predictions, pred_arr
 
 
-# ----------------------------------------------------------
+def image_to_gardiner(img, coordinates):
+    global multi_anchor_img, multi_anchor_label, classification_model, language_model
 
-# ----------------------------------------------------
-# -------------------------function changed---------------
-# -------------------------------------------------------
-def image_to_gardiner(img, coordinates, multi_anchor_img, multi_anchor_label, model, language_model):
     sub_images, dist = crop_vertical(img)
 
     new_coordinates, ordered_full_coordinates = move_coord(coordinates, dist)
@@ -234,9 +216,8 @@ def image_to_gardiner(img, coordinates, multi_anchor_img, multi_anchor_label, mo
     for i in range(len(sub_images)):
         glyphs.append(get_glyphs(sub_images[i], new_coordinates[i]))
 
-    preds, pred_arr = predict_all(glyphs, model, multi_anchor_img, multi_anchor_label, language_model, coordinates)
+    preds, pred_arr = predict_all(glyphs, classification_model, multi_anchor_img, multi_anchor_label, language_model, coordinates)
 
-    #     print()
     final_coor = []
     for i in range(len(ordered_full_coordinates)):
         cor_list = []
@@ -244,8 +225,8 @@ def image_to_gardiner(img, coordinates, multi_anchor_img, multi_anchor_label, mo
             # print(i,j)
             cor_list.append({"coor": ordered_full_coordinates[i][j], "pred": [pred_arr[i][j]]})
         final_coor.append(cor_list)
-
-    return preds, final_coor
+    classified_img = visualize(img, final_coor)
+    return preds, classified_img
     # -----------------------------------------
 
 
@@ -255,32 +236,32 @@ def image_to_gardiner(img, coordinates, multi_anchor_img, multi_anchor_label, mo
 
 # print(model.summary())
 # with tf.device('/cpu:0'):
-model = keras.models.load_model('assets/classify_assets/final_model.h5')
+def load_models():
+    global pickle, classification_model, multi_anchor_img, multi_anchor_label, language_model
 
-with open("assets/classify_assets/multi_anchor.pickle", "rb") as f:
-    (multi_anchor_img, multi_anchor_label) = pickle.load(f)
+    classification_model = keras.models.load_model("assets/classify_assets/final_model.h5")
 
-import dill as pickle
+    with open("assets/classify_assets/multi_anchor.pickle", "rb") as f:
+        (multi_anchor_img, multi_anchor_label) = pickle.load(f)
 
-with open("assets/classify_assets/language_model_sent.pkl", "rb") as f:
-    language_model = pickle.load(f)
+    import dill as pickle
 
-# ----------main ------------
-from detect import detect
+    with open("assets/classify_assets/language_model_sent.pkl", "rb") as f:
+        language_model = pickle.load(f)
+    print('Classify models loaded successfully.')
 
-test_img = io.imread('results/preprocess73.jpg')
-detections = detect(test_img)
-# detected = pd.read_json('assets/classify_assets/image_0_predictions.txt')
-detected_df = pd.DataFrame(detections, columns=['bboxes'])
-coordinates = detected_df['bboxes']
+load_models()
+if __name__ == "__main__":
+    from detect import detect
 
-final_preds, final_coor = image_to_gardiner(test_img, coordinates, multi_anchor_img, multi_anchor_label, model,
-                                            language_model)
+    test_img = io.imread('results/preprocess73.jpg')
+    detections = detect(test_img)
 
-print(final_preds)
-image = visualize(test_img, final_coor)
-plt.figure(figsize=(12, 12))
-plt.axis('off')
-plt.imshow(image)
-plt.show()
-io.imsave('classification0.png', image)
+    final_preds, image = image_to_gardiner(test_img, detections)
+    # , multi_anchor_img, multi_anchor_label, model, language_model
+    print(final_preds)
+    plt.figure(figsize=(12, 12))
+    plt.axis('off')
+    plt.imshow(image)
+    plt.show()
+    # io.imsave('classification0.png', image)

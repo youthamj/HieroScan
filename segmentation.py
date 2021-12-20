@@ -113,33 +113,41 @@ def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
 
 
-def forwardwordsegmentation(sentences, dic):
-    result =[]
+def forwardwordsegmentation(sentences):
+    global word_dic
+    result = []
     for sentence in sentences:
-        if(len(sentence)):
-            op1 = FMM(sentence, dic)
+        if (len(sentence)):
+            op1 = FMM(sentence, word_dic)
             op2 = tokenization(op1)
-            result.append(transliterature(op2, dic))
+            result.append(transliterature(op2, word_dic))
     return result
 
 
-with open("assets/segmentation_assets/dictionaryfinal.pickle", "rb") as fm:  # read
-    dictionaryfinal = pickle.load(fm)
+def load_models():
+    global dictionaryfinal, subword_dic_final, word_dic
+    with open("assets/segmentation_assets/dictionaryfinal.pickle", "rb") as fm:  # read
+        dictionaryfinal = pickle.load(fm)
 
-with open("assets/segmentation_assets/subword_dic_final.pickle", "rb") as fm:  # read
-    subword_dic_final = pickle.load(fm)
+    with open("assets/segmentation_assets/subword_dic_final.pickle", "rb") as fm:  # read
+        subword_dic_final = pickle.load(fm)
 
-with open("assets/segmentation_assets/last_word_dic.pickle", "rb") as f:  # write
-    word_dic = pickle.load(f)
+    with open("assets/segmentation_assets/last_word_dic.pickle", "rb") as f:  # write
+        word_dic = pickle.load(f)
 
-testsen = "R8Z1V30F34Z1I9F40G43"
-# testing line for the function
+load_models()
+if __name__ == "__main__":
+    testsen = "R8Z1V30F34Z1I9F40G43"
+    # testing line for the function
 
-#test0
-# sentences = ['D21I9N35P8N29I9M44Z1F4X1N29D39', 'E34N35N35I9O31O31S29G1V31D21N35P98D35X1', 'V13N35D60O1Q1D21V31E34N35M20D58D1', 'N35Q3D28Z1Z1Y5D21V13F31V13', '']
-#test1
-# sentences = ['Aa15G26I9N35D156E23N29D156D156G7N35V31N35', 'N35D156D156N35W11N14M18Q3N35E23T30G5T30Y5T30', 'D58Z1V31Q3V31Y5T30G43T30Q3T30', 'D156V31V31I9V31M17Y5M17G5S29Y5D39V31T30Y5', 'V31G17G5D46G1N14N14D156Y5G5Y5', '']
-#test2
-# sentences = ['T30', 'N35V31M17I9E23S29V28O50G17N35M41V31', 'X1G39G25N35V31D156D21T30Y5M17X1', 'E23D21V31Z1N35X1V31G5G17D21N35', 'E23D156V31N14N14N14V31M41G5T30']
-sentences = ['', 'E23Q3D21N1D21X1N18X1D21N37G43V28Z1D21M42', 'S29M20T30N35N35N35S29O4D21V13N35D60O4', 'O50G14D21I9D58Q3E34N35M17O4', 'G17Q7N35V13N35G25X1F35', 'M20Q3G1D4E23X1I9M17G43G43V4R8', 'D156D52N35V31D21P1D21G43E9N37P8N35Q3D156O1P98M17G43M42E9Y5M44V28G43H6E9M195M42N35Y5G7N35', 'V4G17O50W11D46E23N35M17Y3Z1']
-print(forwardwordsegmentation(sentences, word_dic))
+    # test0
+    # sentences = ['D21I9N35P8N29I9M44Z1F4X1N29D39', 'E34N35N35I9O31O31S29G1V31D21N35P98D35X1', 'V13N35D60O1Q1D21V31E34N35M20D58D1', 'N35Q3D28Z1Z1Y5D21V13F31V13', '']
+    # test1
+    # sentences = ['Aa15G26I9N35D156E23N29D156D156G7N35V31N35', 'N35D156D156N35W11N14M18Q3N35E23T30G5T30Y5T30', 'D58Z1V31Q3V31Y5T30G43T30Q3T30', 'D156V31V31I9V31M17Y5M17G5S29Y5D39V31T30Y5', 'V31G17G5D46G1N14N14D156Y5G5Y5', '']
+    # test2
+    # sentences = ['T30', 'N35V31M17I9E23S29V28O50G17N35M41V31', 'X1G39G25N35V31D156D21T30Y5M17X1', 'E23D21V31Z1N35X1V31G5G17D21N35', 'E23D156V31N14N14N14V31M41G5T30']
+    sentences = ['', 'E23Q3D21N1D21X1N18X1D21N37G43V28Z1D21M42', 'S29M20T30N35N35N35S29O4D21V13N35D60O4',
+                 'O50G14D21I9D58Q3E34N35M17O4', 'G17Q7N35V13N35G25X1F35', 'M20Q3G1D4E23X1I9M17G43G43V4R8',
+                 'D156D52N35V31D21P1D21G43E9N37P8N35Q3D156O1P98M17G43M42E9Y5M44V28G43H6E9M195M42N35Y5G7N35',
+                 'V4G17O50W11D46E23N35M17Y3Z1']
+    print(forwardwordsegmentation(sentences))

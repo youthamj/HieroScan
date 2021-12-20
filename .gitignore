@@ -150,5 +150,4 @@ crashlytics.properties
 crashlytics-build.properties
 fabric.properties
 
-requirements1.txt
-requirements2.txt
+./assets

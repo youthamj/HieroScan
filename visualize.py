@@ -37,4 +37,3 @@ def visualize(image, coor_pred):
     # plt.axis('off')
     # plt.imshow(img)
     return img
-
